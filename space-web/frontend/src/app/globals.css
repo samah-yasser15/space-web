@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #050811;
+  --foreground: #F1F5F9;
+  --panel-bg: rgba(13, 20, 38, 0.75);
+  --panel-border: rgba(30, 58, 102, 0.5);
+  --cyan-accent: #00F0FF;
+  --emerald-nominal: #10B981;
+  --amber-warning: #F59E0B;
+  --crimson-anomaly: #EF4444;
+}
+
+body {
+  color: var(--foreground);
+  background-color: var(--background);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow-x: hidden;
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(0, 240, 255, 0.05) 0%, transparent 70%),
+    radial-gradient(circle at 85% 30%, rgba(37, 99, 235, 0.04) 0%, transparent 60%),
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+}
+
+/* Custom Aerospace Mission Control Panels */
+.hud-card {
+  background: rgba(13, 21, 39, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(39, 61, 107, 0.45);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  position: relative;
+}
+
+.hud-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-top: 2px solid #00F0FF;
+  border-left: 2px solid #00F0FF;
+}
+
+.hud-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 6px;
+  height: 6px;
+  border-bottom: 2px solid #00F0FF;
+  border-right: 2px solid #00F0FF;
+}
+
+.hud-header {
+  border-bottom: 1px solid rgba(39, 61, 107, 0.45);
+  background: rgba(8, 14, 28, 0.85);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #080D1A;
+}
+::-webkit-scrollbar-thumb {
+  background: #1E3A66;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #00F0FF;
+}
+
+/* Monospace Telemetry Badges */
+.telemetry-val {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: -0.02em;
+}
+
+/* Subtle glowing pulse */
+.pulse-glow-cyan {
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.35);
+}
+
+.pulse-glow-red {
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.45);
+}
+
