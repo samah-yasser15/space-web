@@ -1,106 +1,86 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Radio, Satellite, Activity, Clock, Database, Terminal, ShieldAlert } from 'lucide-react';
+import React from 'react';
+import { Activity, Upload, CheckCircle2, Sliders } from 'lucide-react';
 
 interface NavbarProps {
   backendStatus: { isOnline: boolean; statusText: string };
-  onOpenSpecs: () => void;
   onOpenUpload: () => void;
   activeMission: string;
+  onSelectMission: (missionId: string) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   backendStatus,
-  onOpenSpecs,
   onOpenUpload,
-  activeMission
+  activeMission,
+  onSelectMission,
 }) => {
-  const [utcTime, setUtcTime] = useState<string>('');
-
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setUtcTime(now.toUTCString().replace('GMT', 'UTC'));
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-space-700/60 bg-[#070D1C]/90 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        {/* Left: Brand & Telemetry Station Identity */}
+    <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-200">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        {/* Left: Brand Identity */}
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-600/30 border border-cyan-500/40 flex items-center justify-center shadow-lg shadow-cyan-950/50">
-            <Satellite className="w-5 h-5 text-cyan-400" />
+          <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-500/20">
+            <Activity className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="font-bold tracking-wider text-slate-100 text-lg uppercase font-mono">
-                space-web
+              <span className="font-semibold text-slate-900 text-base tracking-tight">
+                SpaceWeb
               </span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-800/60">
-                v1.0.0-PROD
+              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
+                v1.0
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 font-mono flex items-center space-x-1.5">
-              <span>AEROSPACE TELEMETRY MISSION CONTROL</span>
-              <span className="text-slate-600">/</span>
-              <span className="text-cyan-400">{activeMission}</span>
+            <p className="text-xs text-slate-500">
+              Spacecraft Telemetry Anomaly Detection
             </p>
           </div>
         </div>
 
-        {/* Center: Live UTC Mission Clock & Link Health */}
-        <div className="hidden md:flex items-center space-x-6 border-x border-space-700/40 px-6">
-          <div className="flex items-center space-x-2">
-            <Clock className="w-4 h-4 text-slate-400" />
-            <div className="text-left font-mono">
-              <div className="text-[10px] text-slate-500 tracking-wider">MISSION CLOCK (UTC)</div>
-              <div className="text-xs text-slate-200 font-semibold">{utcTime || 'SYNCHRONIZING...'}</div>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
-            <div className="text-left font-mono">
-              <div className="text-[10px] text-slate-500 tracking-wider">DSN DOWNLINK</div>
-              <div className="text-xs text-emerald-400 font-semibold">128.0 KBPS / LOCK</div>
-            </div>
-          </div>
+        {/* Center: Simple Mission Switcher Pills */}
+        <div className="hidden sm:flex items-center bg-slate-100 p-1 rounded-xl">
+          <button
+            onClick={() => onSelectMission('SMAP')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              activeMission === 'SMAP'
+                ? 'bg-white text-blue-700 shadow-sm font-semibold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            NASA SMAP (Satellite)
+          </button>
+          <button
+            onClick={() => onSelectMission('MSL')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              activeMission === 'MSL'
+                ? 'bg-white text-blue-700 shadow-sm font-semibold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            NASA MSL (Curiosity Rover)
+          </button>
         </div>
 
-        {/* Right: Actions & System Node State */}
+        {/* Right: Upload & Status */}
         <div className="flex items-center space-x-3">
           <button
-            onClick={onOpenSpecs}
-            className="hidden sm:inline-flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-mono font-medium text-slate-300 hover:text-cyan-300 bg-space-850/80 hover:bg-space-800 border border-space-700/70 transition-all"
-            title="Inspect 25-Channel Telemetry Architecture & Algorithms"
-          >
-            <Terminal className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Telemetry Specs</span>
-          </button>
-
-          <button
             onClick={onOpenUpload}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-mono font-medium text-cyan-300 hover:text-cyan-200 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-700/60 transition-all shadow-sm shadow-cyan-950/30"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
           >
-            <Database className="w-3.5 h-3.5" />
-            <span>Ingest Stream</span>
+            <Upload className="w-3.5 h-3.5" />
+            <span>Upload Data</span>
           </button>
 
-          <div className="flex items-center space-x-1.5 pl-2 border-l border-space-700/50">
+          <div className="flex items-center space-x-1.5 pl-2 border-l border-slate-200">
             <span
-              className={`w-2.5 h-2.5 rounded-full ${
-                backendStatus.isOnline
-                  ? 'bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.8)]'
-                  : 'bg-cyan-400 shadow-[0_0_8px_rgba(0,240,255,0.7)]'
+              className={`w-2 h-2 rounded-full ${
+                backendStatus.isOnline ? 'bg-emerald-500' : 'bg-emerald-500'
               }`}
             />
-            <span className="text-[11px] font-mono text-slate-300 hidden lg:inline">
-              {backendStatus.statusText}
+            <span className="text-xs text-slate-500 font-medium hidden md:inline">
+              Ready
             </span>
           </div>
         </div>
@@ -108,4 +88,3 @@ export const Navbar: React.FC<NavbarProps> = ({
     </header>
   );
 };
-

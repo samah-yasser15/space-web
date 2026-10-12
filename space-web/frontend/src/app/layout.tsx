@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'space-web | Spacecraft Telemetry Anomaly Detection System',
-  description: 'Mission Control Aerospace Telemetry Monitoring & Supervised Anomaly Detection Ground Station for NASA SMAP and MSL Missions',
+  title: 'SpaceWeb | Spacecraft Telemetry Anomaly Detection',
+  description: 'Clean and simple telemetry monitoring and anomaly detection for spacecraft missions',
 };
 
 export default function RootLayout({
@@ -12,11 +12,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="min-h-screen bg-[#050811] text-slate-100 antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
+    <html lang="en">
+      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-blue-100 selection:text-blue-900">
         {children}
       </body>
     </html>
   );
 }
-

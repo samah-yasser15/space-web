@@ -2,60 +2,50 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { TelemetryChannelData } from '../types';
-import { Activity, ShieldAlert, CheckCircle2, AlertTriangle, Maximize2 } from 'lucide-react';
+import { Play, Pause, RotateCcw, ChevronRight } from 'lucide-react';
 
 interface TelemetryChartProps {
   data: TelemetryChannelData;
   playbackIndex: number | null;
+  isPlaying: boolean;
+  playbackSpeed: number;
+  onTogglePlay: () => void;
+  onReset: () => void;
+  onSpeedChange: (speed: number) => void;
+  onScrub: (index: number) => void;
   onSelectSample?: (index: number) => void;
 }
 
 export const TelemetryChart: React.FC<TelemetryChartProps> = ({
   data,
   playbackIndex,
+  isPlaying,
+  playbackSpeed,
+  onTogglePlay,
+  onReset,
+  onSpeedChange,
+  onScrub,
   onSelectSample
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-  const [viewRange, setViewRange] = useState<'ALL' | 'ANOMALY_1' | 'FIRST_HALF'>('ALL');
 
   const { values, meta, detection } = data;
   const nPoints = values.length;
 
-  // Compute view bounds
-  const sliceRange = useMemo(() => {
-    if (viewRange === 'FIRST_HALF') {
-      return { start: 0, end: Math.floor(nPoints / 2) };
-    }
-    if (viewRange === 'ANOMALY_1' && detection.anomaly_segments.length > 0) {
-      const seg = detection.anomaly_segments[0];
-      const pad = 120;
-      return {
-        start: Math.max(0, seg.start - pad),
-        end: Math.min(nPoints - 1, seg.end + pad)
-      };
-    }
-    return { start: 0, end: nPoints - 1 };
-  }, [viewRange, nPoints, detection.anomaly_segments]);
-
-  const visibleValues = useMemo(() => {
-    return values.slice(sliceRange.start, sliceRange.end + 1);
-  }, [values, sliceRange]);
-
-  const minVal = useMemo(() => Math.min(...visibleValues), [visibleValues]);
-  const maxVal = useMemo(() => Math.max(...visibleValues), [visibleValues]);
+  const minVal = useMemo(() => Math.min(...values), [values]);
+  const maxVal = useMemo(() => Math.max(...values), [values]);
   const valRange = maxVal - minVal || 1;
 
   // Chart dimensions
   const svgWidth = 1000;
-  const svgHeight = 360;
-  const padding = { top: 25, right: 35, bottom: 40, left: 65 };
+  const svgHeight = 320;
+  const padding = { top: 20, right: 30, bottom: 35, left: 55 };
   const plotWidth = svgWidth - padding.left - padding.right;
   const plotHeight = svgHeight - padding.top - padding.bottom;
 
-  // Coordinate projection
   const getX = (idx: number) => {
-    const fraction = (idx - sliceRange.start) / Math.max(1, (sliceRange.end - sliceRange.start));
+    const fraction = idx / Math.max(1, nPoints - 1);
     return padding.left + fraction * plotWidth;
   };
 
@@ -66,28 +56,23 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({
 
   // Generate SVG path for telemetry line
   const linePath = useMemo(() => {
-    if (visibleValues.length === 0) return '';
+    if (values.length === 0) return '';
     let d = '';
-    for (let i = 0; i < visibleValues.length; i++) {
-      const globalIdx = sliceRange.start + i;
-      const x = getX(globalIdx);
-      const y = getY(visibleValues[i]);
-      if (i === 0) {
-        d += `M ${x.toFixed(1)} ${y.toFixed(1)}`;
-      } else {
-        d += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
-      }
+    for (let i = 0; i < values.length; i++) {
+      const x = getX(i);
+      const y = getY(values[i]);
+      d += i === 0 ? `M ${x.toFixed(1)} ${y.toFixed(1)}` : ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
     }
     return d;
-  }, [visibleValues, sliceRange, minVal, maxVal]);
+  }, [values, minVal, maxVal, nPoints]);
 
   // Compute anomaly shaded rectangles
   const anomalyBoxes = useMemo(() => {
-    const boxes: { x: number; width: number; score: number }[] = [];
+    const boxes: { x: number; width: number }[] = [];
     let inSeg = false;
     let segStart = 0;
 
-    for (let idx = sliceRange.start; idx <= sliceRange.end; idx++) {
+    for (let idx = 0; idx < nPoints; idx++) {
       const isAnom = detection.point_anomalies[idx] === 1;
       if (isAnom && !inSeg) {
         inSeg = true;
@@ -97,26 +82,17 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({
         const segEnd = idx - 1;
         const x1 = getX(segStart);
         const x2 = getX(segEnd);
-        boxes.push({
-          x: x1,
-          width: Math.max(2, x2 - x1),
-          score: detection.point_scores[segStart] || 0.8
-        });
+        boxes.push({ x: x1, width: Math.max(3, x2 - x1) });
       }
     }
     if (inSeg) {
       const x1 = getX(segStart);
-      const x2 = getX(sliceRange.end);
-      boxes.push({
-        x: x1,
-        width: Math.max(2, x2 - x1),
-        score: detection.point_scores[segStart] || 0.8
-      });
+      const x2 = getX(nPoints - 1);
+      boxes.push({ x: x1, width: Math.max(3, x2 - x1) });
     }
     return boxes;
-  }, [sliceRange, detection.point_anomalies, detection.point_scores]);
+  }, [detection.point_anomalies, nPoints]);
 
-  // Mouse hover event handler
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
@@ -124,8 +100,8 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({
 
     if (svgRelX >= padding.left && svgRelX <= svgWidth - padding.right) {
       const frac = (svgRelX - padding.left) / plotWidth;
-      const calcIdx = Math.round(sliceRange.start + frac * (sliceRange.end - sliceRange.start));
-      const clampedIdx = Math.max(sliceRange.start, Math.min(sliceRange.end, calcIdx));
+      const calcIdx = Math.round(frac * (nPoints - 1));
+      const clampedIdx = Math.max(0, Math.min(nPoints - 1, calcIdx));
       setHoverIndex(clampedIdx);
       if (onSelectSample) onSelectSample(clampedIdx);
     }
@@ -137,67 +113,40 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({
   const isCurrentAnomalous = activeIdx !== null && detection.point_anomalies[activeIdx] === 1;
 
   return (
-    <div className="hud-card rounded-xl p-4 sm:p-5 w-full flex flex-col">
-      {/* Chart Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-space-700/50 gap-3">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-lg bg-cyan-950/70 border border-cyan-800/80 flex items-center justify-center">
-            <Activity className="w-4 h-4 text-cyan-400" />
+    <div className="clean-card p-5 w-full flex flex-col">
+      {/* Chart Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-3 border-b border-slate-100 gap-3">
+        <div>
+          <div className="flex items-center space-x-2">
+            <h3 className="text-base font-semibold text-slate-900">
+              Telemetry Stream
+            </h3>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 font-medium text-slate-700">
+              {meta.name}
+            </span>
           </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h3 className="text-sm font-mono font-bold text-slate-100 tracking-wide">
-                TELEMETRY SIGNAL & ANOMALY INTERVALS
-              </h3>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-space-800 text-cyan-300 border border-space-700">
-                {meta.name}
-              </span>
-            </div>
-            <p className="text-[11px] font-mono text-slate-400">
-              Red shaded regions mark supervised anomaly detection intervals (Threshold &gt;= {detection.threshold})
-            </p>
-          </div>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Hover over the chart to inspect values, or press Play to simulate real-time playback.
+          </p>
         </div>
 
-        {/* Zoom & View Controls */}
-        <div className="flex items-center space-x-2 font-mono text-xs">
-          <button
-            onClick={() => setViewRange('ALL')}
-            className={`px-2.5 py-1 rounded transition-all ${
-              viewRange === 'ALL'
-                ? 'bg-cyan-950 text-cyan-300 border border-cyan-700 font-bold'
-                : 'bg-space-900 text-slate-400 border border-space-800 hover:text-slate-200'
-            }`}
-          >
-            Full Series
-          </button>
-          <button
-            onClick={() => setViewRange('ANOMALY_1')}
-            className={`px-2.5 py-1 rounded transition-all ${
-              viewRange === 'ANOMALY_1'
-                ? 'bg-cyan-950 text-cyan-300 border border-cyan-700 font-bold'
-                : 'bg-space-900 text-slate-400 border border-space-800 hover:text-slate-200'
-            }`}
-          >
-            Zoom Anomaly
-          </button>
-          <button
-            onClick={() => setViewRange('FIRST_HALF')}
-            className={`px-2.5 py-1 rounded transition-all ${
-              viewRange === 'FIRST_HALF'
-                ? 'bg-cyan-950 text-cyan-300 border border-cyan-700 font-bold'
-                : 'bg-space-900 text-slate-400 border border-space-800 hover:text-slate-200'
-            }`}
-          >
-            1st Half
-          </button>
+        {/* Legend */}
+        <div className="flex items-center space-x-4 text-xs">
+          <div className="flex items-center space-x-1.5 text-slate-600">
+            <span className="w-3 h-0.5 bg-blue-600 rounded-full" />
+            <span>Normal Signal</span>
+          </div>
+          <div className="flex items-center space-x-1.5 text-slate-600">
+            <span className="w-3 h-3 bg-rose-100 border border-rose-400 rounded-sm" />
+            <span className="text-rose-700 font-medium">Anomaly Region</span>
+          </div>
         </div>
       </div>
 
-      {/* SVG Interactive Canvas */}
+      {/* SVG Chart Canvas */}
       <div
         ref={containerRef}
-        className="relative w-full aspect-[21/9] sm:aspect-[21/8] bg-[#070B16] rounded-lg border border-space-800/80 my-3 overflow-hidden"
+        className="relative w-full aspect-[21/8] bg-slate-50/70 rounded-xl border border-slate-200/70 overflow-hidden"
       >
         <svg
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
@@ -205,7 +154,7 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({
           onMouseMove={handleMouseMove}
           onMouseLeave={() => setHoverIndex(null)}
         >
-          {/* Subtle Gridlines */}
+          {/* Gridlines */}
           {[0, 0.25, 0.5, 0.75, 1.0].map((frac, i) => {
             const y = padding.top + frac * plotHeight;
             const valLabel = (maxVal - frac * valRange).toFixed(1);
@@ -216,14 +165,14 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({
                   y1={y}
                   x2={svgWidth - padding.right}
                   y2={y}
-                  stroke="rgba(39, 61, 107, 0.25)"
+                  stroke="#E2E8F0"
                   strokeDasharray="4 4"
                 />
                 <text
-                  x={padding.left - 8}
+                  x={padding.left - 10}
                   y={y + 4}
                   textAnchor="end"
-                  className="fill-slate-500 text-[10px] font-mono"
+                  className="fill-slate-400 text-[11px] font-mono"
                 >
                   {valLabel}
                 </text>
@@ -234,7 +183,7 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({
           {/* Time axis ticks */}
           {[0, 0.25, 0.5, 0.75, 1.0].map((frac, i) => {
             const x = padding.left + frac * plotWidth;
-            const idxLabel = Math.round(sliceRange.start + frac * (sliceRange.end - sliceRange.start));
+            const idxLabel = Math.round(frac * (nPoints - 1));
             return (
               <g key={`x-${i}`}>
                 <line
@@ -242,16 +191,16 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({
                   y1={padding.top}
                   x2={x}
                   y2={svgHeight - padding.bottom}
-                  stroke="rgba(39, 61, 107, 0.25)"
+                  stroke="#E2E8F0"
                   strokeDasharray="4 4"
                 />
                 <text
                   x={x}
                   y={svgHeight - padding.bottom + 18}
                   textAnchor="middle"
-                  className="fill-slate-500 text-[10px] font-mono"
+                  className="fill-slate-400 text-[11px] font-mono"
                 >
-                  t = {idxLabel}
+                  sample {idxLabel}
                 </text>
               </g>
             );
@@ -265,8 +214,8 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({
               y={padding.top}
               width={box.width}
               height={plotHeight}
-              fill="rgba(239, 68, 68, 0.25)"
-              stroke="rgba(239, 68, 68, 0.75)"
+              fill="rgba(239, 68, 68, 0.12)"
+              stroke="rgba(239, 68, 68, 0.4)"
               strokeWidth="1"
             />
           ))}
@@ -275,22 +224,21 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({
           <path
             d={linePath}
             fill="none"
-            stroke="#00F0FF"
-            strokeWidth="1.8"
+            stroke="#2563EB"
+            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="filter drop-shadow-[0_0_6px_rgba(0,240,255,0.4)]"
           />
 
-          {/* Live Playback / Hover Cursor */}
-          {activeIdx !== null && activeIdx >= sliceRange.start && activeIdx <= sliceRange.end && (
+          {/* Playback / Hover Cursor */}
+          {activeIdx !== null && activeIdx >= 0 && activeIdx < nPoints && (
             <g>
               <line
                 x1={getX(activeIdx)}
                 y1={padding.top}
                 x2={getX(activeIdx)}
                 y2={svgHeight - padding.bottom}
-                stroke={isCurrentAnomalous ? '#EF4444' : '#00F0FF'}
+                stroke={isCurrentAnomalous ? '#EF4444' : '#2563EB'}
                 strokeWidth="1.5"
                 strokeDasharray="3 3"
               />
@@ -299,41 +247,38 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({
                   cx={getX(activeIdx)}
                   cy={getY(activeVal)}
                   r="5"
-                  fill={isCurrentAnomalous ? '#EF4444' : '#00F0FF'}
+                  fill={isCurrentAnomalous ? '#EF4444' : '#2563EB'}
                   stroke="#FFFFFF"
-                  strokeWidth="2"
-                  className={isCurrentAnomalous ? 'animate-ping' : ''}
+                  strokeWidth="2.5"
                 />
               )}
             </g>
           )}
         </svg>
 
-        {/* Hover / Playback Real-time Readout HUD */}
+        {/* Hover / Playback Tooltip Card */}
         {activeIdx !== null && activeVal !== null && (
-          <div className="absolute top-3 right-3 bg-space-950/90 border border-space-700/80 rounded-lg p-2.5 px-3.5 backdrop-blur-md font-mono text-xs shadow-xl">
-            <div className="flex items-center justify-between space-x-3 mb-1">
-              <span className="text-slate-400">SAMPLE #{activeIdx}</span>
+          <div className="absolute top-3 right-3 bg-white border border-slate-200 rounded-xl p-3 shadow-md text-xs">
+            <div className="flex items-center justify-between space-x-3 mb-1.5">
+              <span className="font-semibold text-slate-700">Sample #{activeIdx}</span>
               <span
-                className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                   isCurrentAnomalous
-                    ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                    : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                    ? 'bg-rose-100 text-rose-700'
+                    : 'bg-emerald-100 text-emerald-700'
                 }`}
               >
-                {isCurrentAnomalous ? 'ANOMALY DETECTED' : 'NOMINAL TELEMETRY'}
+                {isCurrentAnomalous ? 'Anomaly' : 'Normal'}
               </span>
             </div>
-            <div className="flex items-center space-x-4 text-slate-300">
+            <div className="flex items-center space-x-4 text-slate-600">
               <div>
-                <span className="text-slate-500 mr-1.5">Value:</span>
-                <span className="text-cyan-300 font-bold">{activeVal.toFixed(3)} {meta.unit}</span>
+                Value: <span className="font-semibold text-slate-900">{activeVal.toFixed(2)} {meta.unit}</span>
               </div>
               {activeScore !== null && (
                 <div>
-                  <span className="text-slate-500 mr-1.5">Anomaly Prob:</span>
-                  <span className={`font-bold ${activeScore >= detection.threshold ? 'text-rose-400' : 'text-emerald-400'}`}>
-                    {(activeScore * 100).toFixed(1)}%
+                  Score: <span className={`font-semibold ${activeScore >= detection.threshold ? 'text-rose-600' : 'text-slate-800'}`}>
+                    {(activeScore * 100).toFixed(0)}%
                   </span>
                 </div>
               )}
@@ -342,32 +287,77 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({
         )}
       </div>
 
-      {/* Footer Metrics Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 font-mono text-xs">
-        <div className="bg-space-900/60 p-2.5 rounded-lg border border-space-800">
-          <div className="text-slate-500 text-[10px]">TOTAL SAMPLES</div>
-          <div className="text-slate-200 font-semibold">{nPoints} Time Samples</div>
+      {/* Clean Playback Controls Bar */}
+      <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+        {/* Play / Reset buttons */}
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={onTogglePlay}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-medium transition-colors ${
+              isPlaying
+                ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+            }`}
+          >
+            {isPlaying ? (
+              <>
+                <Pause className="w-3.5 h-3.5" />
+                <span>Pause</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Simulate</span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={onReset}
+            className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"
+            title="Reset to Start"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset</span>
+          </button>
         </div>
-        <div className="bg-space-900/60 p-2.5 rounded-lg border border-space-800">
-          <div className="text-slate-500 text-[10px]">ANOMALOUS SAMPLES</div>
-          <div className="text-rose-400 font-semibold">
-            {detection.anomaly_points_count} ({((detection.anomaly_ratio) * 100).toFixed(1)}%)
-          </div>
+
+        {/* Scrubber */}
+        <div className="flex-1 max-w-md w-full flex items-center space-x-3">
+          <span className="text-slate-500 font-mono text-[11px] w-12 text-right">
+            {playbackIndex !== null ? playbackIndex : 0}
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={nPoints - 1}
+            value={playbackIndex !== null ? playbackIndex : 0}
+            onChange={(e) => onScrub(Number(e.target.value))}
+            className="w-full h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+          />
+          <span className="text-slate-400 font-mono text-[11px] w-12">
+            {nPoints - 1}
+          </span>
         </div>
-        <div className="bg-space-900/60 p-2.5 rounded-lg border border-space-800">
-          <div className="text-slate-500 text-[10px]">PEAK ANOMALY PROBABILITY</div>
-          <div className="text-amber-400 font-semibold">
-            {(detection.max_probability * 100).toFixed(1)}%
-          </div>
-        </div>
-        <div className="bg-space-900/60 p-2.5 rounded-lg border border-space-800">
-          <div className="text-slate-500 text-[10px]">ACTIVE INTERVALS</div>
-          <div className="text-cyan-300 font-semibold">
-            {detection.anomaly_segments.length} Contiguous Events
-          </div>
+
+        {/* Speed buttons */}
+        <div className="flex items-center space-x-1">
+          <span className="text-slate-400 mr-1">Speed:</span>
+          {[1, 2, 5].map((speed) => (
+            <button
+              key={speed}
+              onClick={() => onSpeedChange(speed)}
+              className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                playbackSpeed === speed
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {speed}x
+            </button>
+          ))}
         </div>
       </div>
     </div>
   );
 };
-

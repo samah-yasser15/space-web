@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Gauge, ShieldAlert, ShieldCheck, AlertTriangle, Activity } from 'lucide-react';
 import { DetectionResult } from '../types';
+import { CheckCircle2, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
 
 interface AnomalyGaugeProps {
   detection: DetectionResult;
@@ -20,109 +20,78 @@ export const AnomalyGauge: React.FC<AnomalyGaugeProps> = ({
   const percent = Math.min(100, Math.max(0, Math.round(prob * 100)));
   const isAnomalous = prob >= detection.threshold;
 
-  // Gauge colors
-  const strokeColor = isAnomalous
-    ? '#EF4444'
-    : prob > 0.3
-    ? '#F59E0B'
-    : '#10B981';
-
-  const circumference = 2 * Math.PI * 46;
-  const strokeDashoffset = circumference - (percent / 100) * circumference;
-
   return (
-    <div className="hud-card rounded-xl p-4 sm:p-5 w-full flex flex-col justify-between">
-      {/* Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-space-700/50">
-        <div className="flex items-center space-x-2">
-          <Gauge className="w-4 h-4 text-cyan-400" />
-          <h3 className="text-xs font-mono font-bold text-slate-100 uppercase tracking-wider">
-            Anomaly Threat Index
-          </h3>
-        </div>
+    <div className="clean-card p-5 w-full flex flex-col justify-between">
+      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 className="text-sm font-semibold text-slate-900">
+          Anomaly Risk Level
+        </h3>
         <span
-          className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${
+          className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
             isAnomalous
-              ? 'bg-rose-950 text-rose-300 border border-rose-800 animate-pulse'
-              : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+              ? 'bg-rose-100 text-rose-700'
+              : 'bg-emerald-100 text-emerald-700'
           }`}
         >
-          {isAnomalous ? 'FAULT TRIGGERED' : 'NOMINAL ENVELOPE'}
+          {isAnomalous ? 'Anomaly Detected' : 'Normal'}
         </span>
       </div>
 
-      {/* Radial Gauge Centerpiece */}
+      {/* Main Score Display */}
       <div className="my-5 flex flex-col items-center justify-center">
-        <div className="relative w-36 h-36 flex items-center justify-center">
-          <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 110 110">
+        <div className="relative w-32 h-32 flex items-center justify-center">
+          <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 100 100">
             {/* Background ring */}
             <circle
-              cx="55"
-              cy="55"
-              r="46"
+              cx="50"
+              cy="50"
+              r="40"
               fill="transparent"
-              stroke="#0E172B"
-              strokeWidth="9"
+              stroke="#F1F5F9"
+              strokeWidth="10"
             />
-            {/* Colored progress ring */}
+            {/* Progress ring */}
             <circle
-              cx="55"
-              cy="55"
-              r="46"
+              cx="50"
+              cy="50"
+              r="40"
               fill="transparent"
-              stroke={strokeColor}
-              strokeWidth="9"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
+              stroke={isAnomalous ? '#EF4444' : percent > 30 ? '#F59E0B' : '#10B981'}
+              strokeWidth="10"
+              strokeDasharray={2 * Math.PI * 40}
+              strokeDashoffset={2 * Math.PI * 40 * (1 - percent / 100)}
               strokeLinecap="round"
-              className="transition-all duration-500 ease-out"
+              className="transition-all duration-300"
             />
           </svg>
-
-          {/* Center text readout */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center font-mono">
-            <span className="text-3xl font-extrabold tracking-tight text-white">
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-3xl font-bold text-slate-900">
               {percent}%
             </span>
-            <span className="text-[10px] text-slate-400 uppercase tracking-wider">
-              Probability
-            </span>
+            <span className="text-[11px] text-slate-400 font-medium">Risk Score</span>
           </div>
         </div>
 
-        {/* Severity Label */}
-        <div className="mt-3 flex items-center space-x-2">
+        <div className="mt-3 flex items-center space-x-1.5 text-xs">
           {isAnomalous ? (
-            <ShieldAlert className="w-4 h-4 text-rose-400 animate-bounce" />
+            <>
+              <ShieldAlert className="w-4 h-4 text-rose-600" />
+              <span className="font-semibold text-rose-700">Subsystem Warning</span>
+            </>
           ) : (
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <>
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span className="font-semibold text-emerald-700">Operating Within Envelope</span>
+            </>
           )}
-          <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-200">
-            {isAnomalous
-              ? 'Critical Anomaly Detected'
-              : prob > 0.3
-              ? 'Elevated Subsystem Variance'
-              : 'Subsystem Behavior Nominal'}
-          </span>
         </div>
       </div>
 
-      {/* Diagnostic Threshold Bounds */}
-      <div className="space-y-2 pt-3 border-t border-space-700/50 font-mono text-xs">
-        <div className="flex items-center justify-between text-slate-400">
-          <span>Decision Threshold:</span>
-          <span className="text-cyan-300 font-bold">{detection.threshold} ({(detection.threshold * 100).toFixed(0)}%)</span>
-        </div>
-        <div className="flex items-center justify-between text-slate-400">
-          <span>Sliding Window:</span>
-          <span className="text-slate-200">{detection.window_size} Samples</span>
-        </div>
-        <div className="flex items-center justify-between text-slate-400">
-          <span>Sampling Stride:</span>
-          <span className="text-slate-200">{detection.stride} Samples</span>
-        </div>
+      {/* Footer Details */}
+      <div className="pt-3 border-t border-slate-100 text-xs text-slate-500 flex justify-between">
+        <span>Detection Threshold:</span>
+        <span className="font-semibold text-slate-800">{(detection.threshold * 100).toFixed(0)}%</span>
       </div>
     </div>
   );
 };
-
